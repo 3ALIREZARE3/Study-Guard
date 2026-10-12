@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">StudyGuard</string>
+    <string name="service_notification_channel_name">StudyGuard Monitor</string>
+    <string name="service_notification_channel_desc">Monitors screen unlock events to show study intervention prompts</string>
+    <string name="service_notification_title">StudyGuard is Active</string>
+    <string name="service_notification_text">Guarding your focus on phone unlock</string>
+    <string name="intervention_notification_title">Mindful Pause: Time to Study?</string>
+    <string name="intervention_notification_text">Tap to open your study focus reflection</string>
+</resources>
