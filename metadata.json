@@ -1,6 +1,6 @@
 {
-  "name": "StudyGuard - Mindful Unlock Gate",
-  "description": "Intervenes on phone unlock with customizable motivational pictures and study reminders, enforces a mindful reflection delay, and tracks study decisions.",
+  "name": "StudyGuard",
+  "description": "Intervenes on phone unlock and distracting app launches with customizable motivational imagery and reminders, automatically locks the phone on studying choice, enforces reflection delays, and tracks study decisions.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -38,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dashboard
@@ -46,15 +48,14 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Visibility
@@ -88,8 +89,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.util.DeviceAdminHelper
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -110,9 +116,11 @@ import androidx.core.content.ContextCompat
 import com.example.data.model.AppLanguage
 import com.example.data.model.DelayMode
 import com.example.data.model.FocusChoice
+import com.example.data.model.FocusRecord
 import com.example.data.model.ImageDisplayStyle
 import com.example.data.model.ImageSourceType
 import com.example.data.model.StudyGuardSettings
+import com.example.data.model.TargetAppInfo
 import com.example.data.repository.FocusStats
 import com.example.data.repository.SettingsRepository
 import com.example.data.repository.StatsRepository
@@ -147,9 +155,14 @@ class MainActivity : ComponentActivity() {
                 StudyGuardMainApp(
                     settingsRepository = settingsRepository,
                     statsRepository = statsRepository,
-                    onLaunchPreview = {
+                    onLaunchPreview = { isAppPreview, appName ->
                         val previewIntent = Intent(this, InterventionActivity::class.java).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            putExtra(InterventionActivity.EXTRA_IS_APP_TRIGGER, isAppPreview)
+                            if (isAppPreview) {
+                                putExtra(InterventionActivity.EXTRA_TARGET_APP_NAME, appName ?: "Instagram")
+                                putExtra(InterventionActivity.EXTRA_TARGET_PACKAGE, "com.instagram.android")
+                            }
                         }
                         startActivity(previewIntent)
                     },
@@ -160,9 +173,9 @@ class MainActivity : ComponentActivity() {
                         if (isEnabled) {
                             UnlockMonitorService.start(this)
                             val msg = if (updated.appLanguage == AppLanguage.FA)
-                                "محافظ فعال شد! با هر بار باز شدن قفل نمایش داده می‌شود."
+                                "محافظ فعال شد! با هر بار باز شدن قفل و برنامه‌ها نمایش داده می‌شود."
                             else
-                                "StudyGuard Active! Intervening on unlock."
+                                "StudyGuard Active! Intervening on unlock & app opens."
                             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
                         } else {
                             UnlockMonitorService.stop(this)
@@ -184,7 +197,7 @@ class MainActivity : ComponentActivity() {
 fun StudyGuardMainApp(
     settingsRepository: SettingsRepository,
     statsRepository: StatsRepository,
-    onLaunchPreview: () -> Unit,
+    onLaunchPreview: (isAppPreview: Boolean, appName: String?) -> Unit,
     onToggleService: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
@@ -201,6 +214,31 @@ fun StudyGuardMainApp(
                 Settings.canDrawOverlays(context)
             } else true
         )
+    }
+
+    var hasUsagePermission by remember {
+        mutableStateOf(settingsRepository.hasUsageStatsPermission())
+    }
+
+    var hasDeviceAdminPermission by remember {
+        mutableStateOf(DeviceAdminHelper.isDeviceAdminActive(context))
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasOverlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Settings.canDrawOverlays(context)
+                } else true
+                hasUsagePermission = settingsRepository.hasUsageStatsPermission()
+                hasDeviceAdminPermission = DeviceAdminHelper.isDeviceAdminActive(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -222,6 +260,10 @@ fun StudyGuardMainApp(
     CompositionLocalProvider(
         LocalLayoutDirection provides if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
     ) {
+        BackHandler(enabled = selectedTab != 0) {
+            selectedTab = 0
+        }
+
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -268,7 +310,6 @@ fun StudyGuardMainApp(
                         }
                     },
                     actions = {
-                        // Compact Language Pill Button
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
@@ -299,9 +340,8 @@ fun StudyGuardMainApp(
 
                         Spacer(modifier = Modifier.width(6.dp))
 
-                        // Compact Preview Test Button
                         Button(
-                            onClick = onLaunchPreview,
+                            onClick = { onLaunchPreview(false, null) },
                             modifier = Modifier
                                 .padding(end = 8.dp)
                                 .height(34.dp)
@@ -346,7 +386,25 @@ fun StudyGuardMainApp(
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
+                        onClick = {
+                            selectedTab = 1
+                            hasUsagePermission = settingsRepository.hasUsageStatsPermission()
+                        },
+                        icon = { Icon(Icons.Default.Apps, contentDescription = "Apps") },
+                        label = {
+                            Text(
+                                text = Localization.get("nav_apps", lang),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 11.sp
+                            )
+                        },
+                        modifier = Modifier.testTag("tab_apps")
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
                         icon = { Icon(Icons.Default.Edit, contentDescription = "Design") },
                         label = {
                             Text(
@@ -360,8 +418,8 @@ fun StudyGuardMainApp(
                         modifier = Modifier.testTag("tab_customize")
                     )
                     NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
                         icon = { Icon(Icons.Default.Tune, contentDescription = "Rules") },
                         label = {
                             Text(
@@ -373,21 +431,6 @@ fun StudyGuardMainApp(
                             )
                         },
                         modifier = Modifier.testTag("tab_rules")
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
-                        icon = { Icon(Icons.Default.History, contentDescription = "Stats") },
-                        label = {
-                            Text(
-                                text = Localization.get("nav_history", lang),
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                                fontSize = 11.sp
-                            )
-                        },
-                        modifier = Modifier.testTag("tab_history")
                     )
                     NavigationBarItem(
                         selected = selectedTab == 4,
@@ -419,9 +462,18 @@ fun StudyGuardMainApp(
                             settings = settings,
                             stats = stats,
                             hasOverlayPermission = hasOverlayPermission,
+                            hasDeviceAdminPermission = hasDeviceAdminPermission,
                             onToggleService = onToggleService,
-                            onLaunchPreview = onLaunchPreview,
-                            onNavigateToCustomize = { selectedTab = 1 },
+                            onToggleUnlockGate = { isUnlock ->
+                                settingsRepository.updateSettings(settings.copy(unlockGateEnabled = isUnlock))
+                            },
+                            onToggleAppGate = { isApp ->
+                                settingsRepository.updateSettings(settings.copy(appGateEnabled = isApp))
+                            },
+                            onTestUnlockGate = { onLaunchPreview(false, null) },
+                            onTestAppGate = { onLaunchPreview(true, "Instagram") },
+                            onNavigateToCustomize = { selectedTab = 2 },
+                            onNavigateToApps = { selectedTab = 1 },
                             onRequestOverlayPermission = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                     val intent = Intent(
@@ -430,23 +482,54 @@ fun StudyGuardMainApp(
                                     )
                                     context.startActivity(intent)
                                 }
+                            },
+                            onRequestDeviceAdmin = {
+                                DeviceAdminHelper.requestDeviceAdmin(context)
+                            },
+                            onTestPhoneLock = {
+                                if (DeviceAdminHelper.isDeviceAdminActive(context)) {
+                                    DeviceAdminHelper.lockDevice(context)
+                                } else {
+                                    DeviceAdminHelper.requestDeviceAdmin(context)
+                                }
                             }
                         )
-                        1 -> CustomizeGateTab(
+                        1 -> AppsGateTab(
                             settings = settings,
                             settingsRepository = settingsRepository,
-                            onLaunchPreview = onLaunchPreview
+                            hasUsagePermission = hasUsagePermission,
+                            hasOverlayPermission = hasOverlayPermission,
+                            onRequestUsagePermission = {
+                                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                context.startActivity(intent)
+                            },
+                            onRequestOverlayPermission = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    val intent = Intent(
+                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        Uri.parse("package:${context.packageName}")
+                                    )
+                                    context.startActivity(intent)
+                                }
+                            },
+                            onTestAppGate = { appName ->
+                                onLaunchPreview(true, appName)
+                            }
                         )
-                        2 -> RulesAndScheduleTab(
+                        2 -> CustomizeGateTab(
+                            settings = settings,
+                            settingsRepository = settingsRepository,
+                            onLaunchPreview = { onLaunchPreview(false, null) }
+                        )
+                        3 -> RulesAndScheduleTab(
                             settings = settings,
                             settingsRepository = settingsRepository
                         )
-                        3 -> HistoryStatsTab(
+                        4 -> AboutAndStatsTab(
                             stats = stats,
                             lang = lang,
                             onReset = { statsRepository.resetStats() }
                         )
-                        4 -> AboutTab(lang = lang)
                     }
                 }
             }
@@ -455,23 +538,41 @@ fun StudyGuardMainApp(
 }
 
 // ----------------------------------------------------
-// TAB 1: DASHBOARD
+// TAB 0: DASHBOARD
 // ----------------------------------------------------
 @Composable
 fun DashboardTab(
     settings: StudyGuardSettings,
     stats: FocusStats,
     hasOverlayPermission: Boolean,
+    hasDeviceAdminPermission: Boolean = false,
     onToggleService: (Boolean) -> Unit,
-    onLaunchPreview: () -> Unit,
+    onToggleUnlockGate: (Boolean) -> Unit,
+    onToggleAppGate: (Boolean) -> Unit,
+    onTestUnlockGate: () -> Unit,
+    onTestAppGate: () -> Unit,
     onNavigateToCustomize: () -> Unit,
-    onRequestOverlayPermission: () -> Unit
+    onNavigateToApps: () -> Unit,
+    onRequestOverlayPermission: () -> Unit,
+    onRequestDeviceAdmin: () -> Unit = {},
+    onTestPhoneLock: () -> Unit = {}
 ) {
     val lang = settings.appLanguage
     val activeBannerColor by animateColorAsState(
         targetValue = if (settings.isEnabled) Color(0xFF10B981) else Color(0xFF64748B),
         label = "bannerColor"
     )
+
+    val currentScopeText = if (settings.isEnabled) {
+        when {
+            settings.unlockGateEnabled && settings.appGateEnabled -> String.format(Localization.get("gate_status_both", lang), settings.blockedPackages.size)
+            settings.unlockGateEnabled -> Localization.get("gate_status_unlock_only", lang)
+            settings.appGateEnabled -> String.format(Localization.get("gate_status_apps_only", lang), settings.blockedPackages.size)
+            else -> Localization.get("gate_status_none", lang)
+        }
+    } else {
+        Localization.get("guard_paused_desc", lang)
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -528,14 +629,11 @@ fun DashboardTab(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = if (settings.isEnabled)
-                            Localization.get("guard_active_desc", lang)
-                        else
-                            Localization.get("guard_paused_desc", lang),
+                        text = currentScopeText,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            lineHeight = 22.sp,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
                             color = Color.White
                         )
                     )
@@ -556,43 +654,227 @@ fun DashboardTab(
             }
         }
 
-        // Overlay Permission Banner if needed
-        if (!hasOverlayPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF78350F).copy(alpha = 0.2f)),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(Color(0xFFF59E0B), Color(0xFFD97706))))
-                ) {
+        // TRIGGER MODES: DUAL GATE CONTROLS (Unlock Gate & Specific Apps Gate)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Row(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Warning,
+                            imageVector = Icons.Default.Bolt,
                             contentDescription = null,
-                            tint = Color(0xFFF59E0B),
-                            modifier = Modifier.size(24.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
                             Text(
-                                text = Localization.get("permission_recommended", lang),
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                text = Localization.get("trigger_modes_title", lang),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
                             )
                             Text(
-                                text = Localization.get("permission_desc", lang),
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                                text = Localization.get("trigger_modes_desc", lang),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Button(
-                                onClick = onRequestOverlayPermission,
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 1. Phone Unlock Gate Tile
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (settings.unlockGateEnabled)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(Localization.get("grant_permission", lang), fontSize = 11.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = null,
+                                        tint = if (settings.unlockGateEnabled) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = Localization.get("unlock_gate_title", lang),
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = Localization.get("unlock_gate_desc", lang),
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 11.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = settings.unlockGateEnabled,
+                                    onCheckedChange = onToggleUnlockGate,
+                                    modifier = Modifier.testTag("switch_unlock_gate")
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedButton(
+                                onClick = onTestUnlockGate,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(34.dp)
+                                    .testTag("btn_test_unlock_gate"),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(Localization.get("test_unlock_gate", lang), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 2. Specific Apps Gate Tile
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (settings.appGateEnabled)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Apps,
+                                        contentDescription = null,
+                                        tint = if (settings.appGateEnabled) MaterialTheme.colorScheme.primary else Color(0xFF94A3B8),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = Localization.get("app_gate_title", lang),
+                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = String.format(Localization.get("apps_selected_count", lang), settings.blockedPackages.size),
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 11.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = settings.appGateEnabled,
+                                    onCheckedChange = onToggleAppGate,
+                                    modifier = Modifier.testTag("switch_app_gate")
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = onNavigateToApps,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(34.dp)
+                                        .testTag("btn_configure_apps"),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = String.format(Localization.get("configure_apps", lang), settings.blockedPackages.size),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                OutlinedButton(
+                                    onClick = onTestAppGate,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(34.dp)
+                                        .testTag("btn_test_app_gate"),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = Localization.get("test_app_gate", lang),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -600,7 +882,120 @@ fun DashboardTab(
             }
         }
 
-        // Quick Stats Row (Responsive 1-line cards)
+        // DEVICE ADMIN AUTO-LOCK CARD
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("card_device_admin_status"),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (hasDeviceAdminPermission)
+                        Color(0xFF064E3B).copy(alpha = 0.25f)
+                    else
+                        Color(0xFF78350F).copy(alpha = 0.25f)
+                ),
+                border = CardDefaults.outlinedCardBorder().copy(
+                    brush = Brush.horizontalGradient(
+                        if (hasDeviceAdminPermission)
+                            listOf(Color(0xFF10B981), Color(0xFF059669))
+                        else
+                            listOf(Color(0xFFF59E0B), Color(0xFFD97706))
+                    )
+                )
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (hasDeviceAdminPermission) Color(0xFF065F46) else Color(0xFF92400E)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (hasDeviceAdminPermission) Icons.Default.CheckCircle else Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = if (hasDeviceAdminPermission) Color(0xFF34D399) else Color(0xFFFBBF24),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = Localization.get("device_admin_title", lang),
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                            )
+                            Text(
+                                text = if (hasDeviceAdminPermission)
+                                    Localization.get("device_admin_active", lang)
+                                else
+                                    Localization.get("device_admin_desc", lang),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (hasDeviceAdminPermission) Color(0xFF34D399) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (!hasDeviceAdminPermission) {
+                            Button(
+                                onClick = onRequestDeviceAdmin,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp)
+                                    .testTag("btn_activate_device_admin"),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    Localization.get("activate_device_admin", lang),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        } else {
+                            Button(
+                                onClick = onTestPhoneLock,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp)
+                                    .testTag("btn_test_phone_lock"),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669))
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    Localization.get("test_phone_lock", lang),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Quick Stats Row
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -777,7 +1172,7 @@ fun DashboardTab(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Button(
-                            onClick = onLaunchPreview,
+                            onClick = onTestUnlockGate,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(44.dp)
@@ -808,6 +1203,392 @@ fun DashboardTab(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------
+// TAB 1: SPECIFIC APPS GATE (App Blocker / Focus Guard)
+// ----------------------------------------------------
+@Composable
+fun AppsGateTab(
+    settings: StudyGuardSettings,
+    settingsRepository: SettingsRepository,
+    hasUsagePermission: Boolean,
+    hasOverlayPermission: Boolean,
+    onRequestUsagePermission: () -> Unit,
+    onRequestOverlayPermission: () -> Unit,
+    onTestAppGate: (appName: String) -> Unit
+) {
+    val lang = settings.appLanguage
+    var searchQuery by remember { mutableStateOf("") }
+    val allApps = remember(settings.blockedPackages) {
+        settingsRepository.getInstalledAppsList()
+    }
+
+    val filteredApps = remember(searchQuery, allApps) {
+        if (searchQuery.isBlank()) {
+            allApps
+        } else {
+            allApps.filter {
+                it.appName.contains(searchQuery, ignoreCase = true) ||
+                it.packageName.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Master App Gate Toggle Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (settings.appGateEnabled) Color(0xFF1E1B4B) else Color(0xFF1E293B)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Apps,
+                                contentDescription = null,
+                                tint = if (settings.appGateEnabled) Color(0xFF34D399) else Color(0xFF94A3B8),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = Localization.get("app_gate_title", lang),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color.White
+                                )
+                            )
+                        }
+
+                        Switch(
+                            checked = settings.appGateEnabled,
+                            onCheckedChange = {
+                                settingsRepository.updateSettings(settings.copy(appGateEnabled = it))
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = Localization.get("app_gate_desc", lang),
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFCBD5E1), fontSize = 12.sp)
+                    )
+                }
+            }
+        }
+
+        // Usage Access Permission Banner
+        if (!hasUsagePermission) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF78350F).copy(alpha = 0.25f)),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(Color(0xFFF59E0B), Color(0xFFD97706))))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFF59E0B),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = Localization.get("usage_access_needed", lang),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            )
+                            Text(
+                                text = Localization.get("usage_access_desc", lang),
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Button(
+                                onClick = onRequestUsagePermission,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                            ) {
+                                Text(Localization.get("grant_usage_access", lang), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Overlay Permission Banner if needed
+        if (!hasOverlayPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF78350F).copy(alpha = 0.2f)),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(Color(0xFFF59E0B), Color(0xFFD97706))))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFF59E0B),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = Localization.get("permission_recommended", lang),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            )
+                            Text(
+                                text = Localization.get("permission_desc", lang),
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Button(
+                                onClick = onRequestOverlayPermission,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
+                            ) {
+                                Text(Localization.get("grant_permission", lang), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // App Cooldown Pass Setting
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = Localization.get("app_grace_title", lang),
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        )
+                        Text(
+                            text = "${settings.appGraceMinutes}m",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Text(
+                        text = String.format(Localization.get("app_grace_desc", lang), settings.appGraceMinutes),
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(1, 5, 10, 15).forEach { min ->
+                            FilterChip(
+                                selected = settings.appGraceMinutes == min,
+                                onClick = {
+                                    settingsRepository.updateSettings(settings.copy(appGraceMinutes = min))
+                                },
+                                label = {
+                                    Text(
+                                        text = "${min}m",
+                                        fontSize = 12.sp,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Test App Gate Button
+        item {
+            OutlinedButton(
+                onClick = { onTestAppGate("Instagram") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .testTag("btn_test_app_gate_tab"),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(Localization.get("test_app_gate", lang), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        // App Selector Header, Preset Chips & Search
+        item {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = Localization.get("protected_apps", lang),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    )
+                    Text(
+                        text = String.format(Localization.get("apps_selected_count", lang), settings.blockedPackages.size),
+                        style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = false,
+                        onClick = {
+                            val presetPkgs = SettingsRepository.POPULAR_DISTRACTION_PACKAGES.map { it.packageName }.toSet()
+                            val combined = settings.blockedPackages + presetPkgs
+                            settingsRepository.updateSettings(settings.copy(blockedPackages = combined))
+                        },
+                        label = { Text(Localization.get("select_all_preset", lang), fontSize = 11.sp) },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    FilterChip(
+                        selected = false,
+                        onClick = {
+                            settingsRepository.updateSettings(settings.copy(blockedPackages = emptySet()))
+                        },
+                        label = { Text(Localization.get("clear_all_apps", lang), fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text(Localization.get("search_apps", lang), fontSize = 12.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true
+                )
+            }
+        }
+
+        // Target Apps List
+        items(filteredApps, key = { it.packageName }) { appInfo ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (appInfo.isBlocked)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    else
+                        MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (appInfo.isPopularPreset) Color(0xFF4338CA).copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = appInfo.appName.take(1).uppercase(),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Column {
+                            Text(
+                                text = appInfo.appName,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = appInfo.packageName,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = appInfo.isBlocked,
+                        onCheckedChange = { isChecked ->
+                            val currentBlocked = settings.blockedPackages.toMutableSet()
+                            if (isChecked) {
+                                currentBlocked.add(appInfo.packageName)
+                            } else {
+                                currentBlocked.remove(appInfo.packageName)
+                            }
+                            settingsRepository.updateSettings(settings.copy(blockedPackages = currentBlocked))
+                        }
+                    )
                 }
             }
         }
@@ -877,7 +1658,6 @@ fun CustomizeGateTab(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Row 1 of Presets
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -909,7 +1689,6 @@ fun CustomizeGateTab(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Row 2 of Presets (Medical Focus & Gallery / Minimal)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -976,7 +1755,6 @@ fun CustomizeGateTab(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Picture Display Style / Sizing
                     Text(
                         text = Localization.get("picture_display_size", lang),
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -1085,7 +1863,6 @@ fun CustomizeGateTab(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // Polished multi-line cards for presets so quotes are never truncated awkwardly
                     Localization.PRESET_QUOTES.forEach { preset ->
                         val pTitle = if (isRtl) preset.titleFa else preset.titleEn
                         val pSub = if (isRtl) preset.subtitleFa else preset.subtitleEn
@@ -1148,7 +1925,7 @@ fun CustomizeGateTab(
             }
         }
 
-        // Section 3: Delay Settings (Symmetrical 2 rows of 3 chips)
+        // Section 3: Delay Settings
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1192,7 +1969,6 @@ fun CustomizeGateTab(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Row 1 of Delay presets (0s, 5s, 10s)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1217,7 +1993,6 @@ fun CustomizeGateTab(
                         }
                     }
 
-                    // Row 2 of Delay presets (15s, 30s, 60s)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1412,7 +2187,6 @@ fun RulesAndScheduleTab(
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Cooldown Setting
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1474,7 +2248,6 @@ fun RulesAndScheduleTab(
             }
         }
 
-        // Schedule Active Hours
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1544,7 +2317,6 @@ fun RulesAndScheduleTab(
             }
         }
 
-        // Additional Toggles
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1608,187 +2380,16 @@ fun RulesAndScheduleTab(
 }
 
 // ----------------------------------------------------
-// TAB 4: HISTORY & STATS
+// TAB 4: ABOUT & FOCUS STATS (Creator Details & History)
 // ----------------------------------------------------
 @Composable
-fun HistoryStatsTab(
+fun AboutAndStatsTab(
     stats: FocusStats,
     lang: AppLanguage,
     onReset: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = Localization.get("performance_title", lang),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("${stats.focusRatePercent}%", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 24.sp))
-                            Text(Localization.get("win_rate", lang), style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp))
-                        }
-
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("${stats.totalInterventions}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 24.sp))
-                            Text(Localization.get("total_interventions", lang), style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = "🌟 ${stats.estimatedMinutesSaved}m study focus protected!",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                }
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = Localization.get("recent_log", lang),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                )
-                if (stats.recentRecords.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = onReset,
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(Localization.get("clear_history", lang), fontSize = 10.sp)
-                    }
-                }
-            }
-        }
-
-        if (stats.recentRecords.isEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MenuBook,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(Localization.get("no_interventions_yet", lang), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                }
-            }
-        } else {
-            items(stats.recentRecords) { record ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (record.choice == FocusChoice.STUDIED)
-                                            Color(0xFFD1FAE5) else Color(0xFFFEE2E2)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (record.choice == FocusChoice.STUDIED)
-                                        Icons.Default.MenuBook else Icons.Default.PhoneAndroid,
-                                    contentDescription = null,
-                                    tint = if (record.choice == FocusChoice.STUDIED)
-                                        Color(0xFF059669) else Color(0xFFDC2626),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = if (record.choice == FocusChoice.STUDIED)
-                                        Localization.get("back_to_studying", lang) else Localization.get("use_phone_anyway", lang),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                if (record.note.isNotEmpty()) {
-                                    Text(
-                                        text = record.note,
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-
-                        Text(
-                            text = dateFormat.format(Date(record.timestamp)),
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ----------------------------------------------------
-// TAB 5: ABOUT PAGE (Developer, MD Details, Story)
-// ----------------------------------------------------
-@Composable
-fun AboutTab(lang: AppLanguage) {
     val context = LocalContext.current
+    val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
 
     LazyColumn(
         modifier = Modifier
@@ -1904,64 +2505,159 @@ fun AboutTab(lang: AppLanguage) {
             }
         }
 
-        // App Mission & Story Card
+        // Performance Metric Card
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.School,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = Localization.get("app_purpose_headline", lang),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    Text(
+                        text = Localization.get("performance_title", lang),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("${stats.focusRatePercent}%", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 24.sp))
+                            Text(Localization.get("win_rate", lang), style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp))
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("${stats.totalInterventions}", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold, fontSize = 24.sp))
+                            Text(Localization.get("total_interventions", lang), style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp))
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = Localization.get("app_story", lang),
+                        text = "🌟 ${stats.estimatedMinutesSaved}m study focus protected!",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            lineHeight = 22.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            fontWeight = FontWeight.SemiBold
                         )
                     )
+                }
+            }
+        }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+        // Recent Decision Activity Log
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = Localization.get("recent_log", lang),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                )
+                if (stats.recentRecords.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = onReset,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                        Text(
-                            text = Localization.get("version_info", lang),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 10.sp
-                            )
+                        Text(Localization.get("clear_history", lang), fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+
+        if (stats.recentRecords.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(Localization.get("no_interventions_yet", lang), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+        } else {
+            items(stats.recentRecords.take(15)) { record ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (record.choice == FocusChoice.STUDIED)
+                                            Color(0xFFD1FAE5) else Color(0xFFFEE2E2)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (record.choice == FocusChoice.STUDIED)
+                                        Icons.Default.MenuBook else Icons.Default.Apps,
+                                    contentDescription = null,
+                                    tint = if (record.choice == FocusChoice.STUDIED)
+                                        Color(0xFF059669) else Color(0xFFDC2626),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (record.choice == FocusChoice.STUDIED)
+                                        Localization.get("back_to_studying", lang) else Localization.get("use_phone_anyway", lang),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (record.note.isNotEmpty()) {
+                                    Text(
+                                        text = record.note,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
                         Text(
-                            text = "MD Focus Tool",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 10.sp
-                            )
+                            text = dateFormat.format(Date(record.timestamp)),
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

@@ -1,128 +1,127 @@
-# StudyGuard 📖🔒
+# StudyGuard (استادی‌گارد) 📚🛡️
+### Mindful Phone Unlock & Specific Apps Focus Gate for Android
 
-<p align="center">
-  <img src="app/src/main/res/drawable/img_medical_focus.jpg" alt="StudyGuard Banner" width="600" style="border-radius: 16px;" />
-</p>
-
-<p align="center">
-  <b>A mindful Android gatekeeper that interrupts phone unlock reflexes, prompts reflection, and protects deep study focus.</b>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Android-green.svg" alt="Platform" />
-  <img src="https://img.shields.io/badge/Language-Kotlin%202.2-blue.svg" alt="Kotlin" />
-  <img src="https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-purple.svg" alt="Compose" />
-  <img src="https://img.shields.io/badge/Localization-English%20%7C%20Persian%20(فارسی)-orange.svg" alt="Bilingual" />
-  <img src="https://img.shields.io/badge/License-MIT-lightgrey.svg" alt="License" />
-</p>
+> **"Do you really want to use your phone, or go back to studying?"**  
+> *"آیا واقعاً می‌خواهی از گوشی استفاده کنی یا برگردی سر درس؟"*
 
 ---
 
 ## 🌟 Overview
 
-In modern study routines—especially for intensive pursuits like medical education—habitual phone unlocking breaks concentration and burns hours of productivity. **StudyGuard** acts as an intentional pause button.
+**StudyGuard** is an open-source Android focus intervention app engineered for students, medical researchers, and deep-work professionals. It disrupts reflexive, dopamine-driven phone checks and mindless app launches by introducing an intentional, mindful friction layer:
 
-Every time you unlock your device, StudyGuard intercepts the unlock event and presents a full-screen mindful reflection gate:
-1. **Presents your custom motivational image** (medical study art, library goals, cozy desk, or your own photo).
-2. **Prompts your reflection question** (e.g., *"Do you really want to use your phone, or go back to studying?"*).
-3. **Enforces a customizable delay** (countdown timer with guided breathing or continuous hold-to-unlock).
-4. **Offers two clear paths**:
-   - **Go Back to Studying 📚**: Instantly closes the prompt, returns you to your home screen, and tracks your focus streak.
-   - **Use Phone Anyway 📱**: Becomes available only after the mindful delay has elapsed.
+1. **Phone Unlock Gate**: Every time you unlock your device, StudyGuard intercepts the screen with an inspiring study visual, customizable motivational questions, and an enforced reflection countdown or hold-to-unlock delay.
+2. **Specific Apps Gate (App Blocker)**: Beyond phone unlock, StudyGuard actively guards against opening specific distracting applications (e.g., Instagram, TikTok, YouTube, X/Twitter, Telegram, Reddit, or any custom installed app).
+3. **App Cooldown Pass**: Once you thoughtfully decide to use a guarded app, you get a configurable grace window (1m, 5m, 10m, 15m) before the reflection gate appears again.
+4. **Bilingual Support (English & Persian / فارسی)**: Full native localization with automatic RTL (Right-to-Left) layout support, Persian typography, and custom quotes.
+5. **Privacy First & Local Storage**: No cloud analytics, no remote trackers. All settings and focus stats remain 100% on your device.
 
 ---
 
 ## ✨ Features
 
-- **📱 Pure Lockscreen Interception**: Automatically detects `ACTION_USER_PRESENT` on device unlock and launches the full-screen reflection gate without cluttering your notification shade.
-- **🌍 Bilingual Support (English & Persian / فارسی)**:
-  - English by default with instant in-app switching to Persian.
-  - Native Right-to-Left (RTL) layout support.
-  - Persian script typography preserved without cursive breaking.
-- **🎨 Visual Customization & Sizing**:
-  - **Preset Artwork**: Medical Focus (MD), Cozy Study Desk, Goals & Library, or Minimalist Aura.
-  - **Custom Gallery Picker**: Pick any personal inspiration photo from your device via the zero-permission Android Photo Picker.
-  - **Display Modes**: Full-Screen Wallpaper (immersive background), Large Card (280dp), Standard Card (200dp), and Compact Banner (120dp).
-- **⏱️ Configurable Mindful Delay**:
-  - Select between **0s and 60s** (quick presets: 0s, 5s, 10s, 15s, 30s, 60s).
-  - **Countdown Timer Mode**: Animated progress ring with guided breathing prompt.
-  - **Hold-to-Unlock Mode**: Requires continuous holding to break automatic muscle-memory tapping.
-- **📊 Focus Statistics & History**:
-  - Live Focus Win Rate percentage.
-  - Total interventions logged and estimated study hours saved.
-  - Interactive decision log with timestamps and optional intention tags.
-- **⚙️ Flexible Scheduling & Grace Periods**:
-  - Configurable cooldown grace period (0m, 1m, 3m, 5m, 15m).
-  - Study hours scheduling window (e.g., active 08:00 – 22:00, or 24/7).
-  - Optional phone intention prompt and haptic feedback.
+- **Dual Intervention Triggers**:
+  - 🔓 **Phone Unlock Gate**: Toggle on/off to intervene on every lockscreen unlock.
+  - 📱 **Specific Apps Gate**: Toggle on/off to intervene whenever selected distracting apps are opened.
+  - Can be used independently or together.
+- **Configurable Reflection Delays**:
+  - ⏳ **Countdown Timer**: 5s to 60s with an animated breathing circle to induce calm.
+  - 🔒 **Hold-to-Unlock**: Physical friction requiring continuous tactile contact before accessing your phone or app.
+- **Visuals & Presets**:
+  - Full-screen wallpaper mode, large card, standard card, or compact banner.
+  - Built-in presets: Cozy Study Desk, Vision & Goals, and Medical (MD) Focus.
+  - Custom image picker from device photo gallery.
+- **Customizable Prompts & Quotes**:
+  - Edit the main question and subtitle reminders.
+  - Quick presets curated for medical students and deep focus.
+- **Intention Requirement**:
+  - Optional prompt asking "What is your intention?" (Urgent task, Study search, Important message, Break) before entering the phone.
+- **Focus Statistics & History**:
+  - Track total interventions, study decisions, focus win rate, and estimated minutes of study time saved.
+  - Activity log detailing every mindful choice.
+- **About Developer & Medical Mission**:
+  - Created by **Alireza Zare, MD** (`3alirezare3@gmail.com`).
+  - Dedicated to helping students preserve their mental clarity and master their education.
+
+---
+
+## 📱 Screenshots & Flow
+
+```
+[Phone Unlocked or Blocked App Opened]
+                 │
+                 ▼
+       ┌──────────────────┐
+       │   StudyGuard     │
+       │ Reflection Gate  │
+       │ (Cozy Desk / MD) │
+       └─────────┬────────┘
+                 │
+    ┌────────────┴────────────┐
+    │                         │
+    ▼                         ▼
+[Go Back to Studying]    [Delay Countdown (e.g. 10s)]
+  • Records focus win        • Breathing guide
+  • Sends to Home Screen      • Unlocks "Open Anyway"
+  • Protects your time        • Allows intentional use
+```
 
 ---
 
 ## 🛠️ Tech Stack & Architecture
 
-- **Language**: Kotlin 100%
-- **UI Toolkit**: Jetpack Compose with Material Design 3 (M3)
-- **Architecture**: Clean Architecture / MVVM with reactive Kotlin Coroutines & `StateFlow`
+- **Language**: Kotlin 2.0+
+- **UI Framework**: Jetpack Compose (Material Design 3)
+- **Architecture**: MVVM with Clean Repository Pattern
+- **Async & Reactive**: Kotlin Coroutines & StateFlow
 - **Image Loading**: Coil Compose
-- **Permissions**: Modern Android Photo Picker (`ActivityResultContracts.PickVisualMedia`), Foreground Service (`specialUse`), and Overlay Window API
-- **Testing**: Robolectric JVM unit tests for repository persistence, localization, and unlock rules
+- **System Integrations**:
+  - `ForegroundService` with `ACTION_USER_PRESENT` / `ACTION_SCREEN_ON` broadcast interception
+  - `UsageStatsManager` for real-time foreground app launch detection
+  - `SYSTEM_ALERT_WINDOW` & `USE_FULL_SCREEN_INTENT` for reliable lockscreen display
+  - Android Photo Picker (`PickVisualMedia`) for safe zero-permission image selection
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Android Studio Ladybug / Meerkat or newer
-- Android SDK 34+
-- Java 11+
-- Gradle 8.x+
+- Android Studio Ladybug | 2024.2.1 or newer
+- Android SDK 35 (Min SDK 24)
+- JDK 17 or newer
 
-### Installation & Build
+### Installation & Setup
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/studyguard.git
-   cd studyguard
+   git clone https://github.com/your-username/StudyGuard.git
+   cd StudyGuard
    ```
-2. **Open in Android Studio and sync Gradle.**
-3. **Build Debug APK**:
+
+2. **Open in Android Studio**:
+   Open the root project folder in Android Studio and let Gradle sync.
+
+3. **Required Android Permissions**:
+   Upon first launch, enable the following in Android Settings:
+   - **Display over other apps** (Overlay Permission): Allows StudyGuard to display immediately over lockscreen and apps.
+   - **Usage Access**: Allows StudyGuard to detect when guarded distracting apps are opened.
+   - **Notifications**: Keeps the lightweight foreground monitoring service alive.
+
+4. **Build and Run**:
    ```bash
-   ./gradlew assembleDebug
-   ```
-4. **Run Unit & Robolectric Tests**:
-   ```bash
-   ./gradlew :app:testDebugUnitTest
-   ```
-5. **Deploy to Device / Emulator**:
-   Run the app from Android Studio or install the APK:
-   ```bash
-   adb install -r app/build/outputs/apk/debug/app-debug.apk
+   gradle assembleDebug
    ```
 
 ---
 
-## 🔐 Required Device Permissions
+## 👨‍⚕️ Author
 
-To ensure StudyGuard can intervene reliably on phone unlock:
-
-- **Foreground Service**: Keeps the monitor active while your device is locked.
-- **Display Over Other Apps (SYSTEM_ALERT_WINDOW)**: Allows the intervention gate to appear immediately when unlocking on Android 10+. A 1-tap setup button is provided directly in the Dashboard tab.
-- **Notifications (POST_NOTIFICATIONS)**: Required for the silent Android Foreground Service status indicator.
-
----
-
-## 👨‍⚕️ Author & Credits
-
-**Alireza Zare, MD**
-
-📧 Email: 3alirezare3@gmail.com
-
-❤️ Made with ❤️ by me
-
-> "As medical students and professionals know, long hours of intense study require uninterrupted concentration. In our digital age, the simple reflex of unlocking our phones can cost hours of deep focus. StudyGuard was created to give you a mindful second chance."
+- **Developer**: Alireza Zare, MD
+- **Email**: [3alirezare3@gmail.com](mailto:3alirezare3@gmail.com)
+- **Tagline**: Made with ❤️ by me
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is open-source under the [MIT License](LICENSE).

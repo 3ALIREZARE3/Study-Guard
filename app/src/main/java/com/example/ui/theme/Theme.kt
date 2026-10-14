@@ -57,7 +57,7 @@ private val LightColorScheme =
 @Composable
 fun MyApplicationTheme(
   darkTheme: Boolean = isSystemInDarkTheme(),
-  dynamicColor: Boolean = false, // Use our intentional custom focus palette by default
+  dynamicColor: Boolean = false,
   content: @Composable () -> Unit,
 ) {
   val colorScheme =

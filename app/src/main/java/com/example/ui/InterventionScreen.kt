@@ -3,6 +3,7 @@ package com.example.ui
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -16,6 +17,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Lock
@@ -89,6 +92,7 @@ import com.example.data.model.DelayMode
 import com.example.data.model.ImageDisplayStyle
 import com.example.data.model.ImageSourceType
 import com.example.data.model.StudyGuardSettings
+import com.example.util.DeviceAdminHelper
 import com.example.util.Localization
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -97,6 +101,8 @@ import java.io.File
 @Composable
 fun InterventionScreen(
     settings: StudyGuardSettings,
+    isAppTrigger: Boolean = false,
+    targetAppName: String? = null,
     onBackToStudying: () -> Unit,
     onUsePhone: (note: String) -> Unit
 ) {
@@ -136,16 +142,6 @@ fun InterventionScreen(
         }
     }
 
-    BackHandler {
-        onBackToStudying()
-    }
-
-    val isUnlockUnlocked = if (settings.delayMode == DelayMode.COUNTDOWN) {
-        secondsLeft <= 0
-    } else {
-        holdProgress >= 1f
-    }
-
     fun vibrateShort() {
         if (!settings.vibrationEnabled) return
         try {
@@ -157,6 +153,30 @@ fun InterventionScreen(
                 vibrator?.vibrate(50)
             }
         } catch (_: Exception) {}
+    }
+
+    BackHandler(enabled = true) {
+        vibrateShort()
+        Toast.makeText(
+            context,
+            Localization.get("gate_locked_toast", lang),
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    val isUnlockUnlocked = if (settings.delayMode == DelayMode.COUNTDOWN) {
+        secondsLeft <= 0
+    } else {
+        holdProgress >= 1f
+    }
+
+    val displayPromptTitle = if (isAppTrigger && !targetAppName.isNullOrEmpty()) {
+        if (isRtl)
+            "آیا واقعاً می‌خواهی $targetAppName را باز کنی یا به درس برگردی؟"
+        else
+            "Do you really want to open $targetAppName, or go back to studying?"
+    } else {
+        settings.promptTitle
     }
 
     CompositionLocalProvider(
@@ -179,7 +199,6 @@ fun InterventionScreen(
                     breathScale = breathScale,
                     contentScale = ContentScale.Crop
                 )
-                // Dark ambient readability scrim
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -194,7 +213,6 @@ fun InterventionScreen(
                         )
                 )
             } else {
-                // Default gradient background
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -221,7 +239,7 @@ fun InterventionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Top Mindful Badge (No letter-spacing in Persian to prevent cursive disconnect)
+                // Top Mindful Badge
                 Row(
                     modifier = Modifier
                         .clip(CircleShape)
@@ -230,14 +248,17 @@ fun InterventionScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SelfImprovement,
+                        imageVector = if (isAppTrigger) Icons.Default.Apps else Icons.Default.SelfImprovement,
                         contentDescription = null,
                         tint = Color(0xFFFBBF24),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = Localization.get("mindful_focus_gate", lang),
+                        text = if (isAppTrigger)
+                            Localization.get("app_focus_gate", lang)
+                        else
+                            Localization.get("mindful_focus_gate", lang),
                         style = MaterialTheme.typography.labelMedium.copy(
                             color = Color(0xFFE0E7FF),
                             fontWeight = FontWeight.Bold,
@@ -248,9 +269,22 @@ fun InterventionScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (isAppTrigger && !targetAppName.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = String.format(Localization.get("opening_app_prompt", lang), targetAppName),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0xFFFBBF24),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp
+                        ),
+                        maxLines = 1
+                    )
+                }
 
-                // Card Picture Display (when not in full screen wallpaper mode)
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Card Picture Display
                 if (settings.imageDisplayStyle != ImageDisplayStyle.FULL_SCREEN_BACKGROUND) {
                     val cardHeight = when (settings.imageDisplayStyle) {
                         ImageDisplayStyle.LARGE_CARD -> 260.dp
@@ -277,7 +311,6 @@ fun InterventionScreen(
                                 contentScale = ContentScale.Crop
                             )
 
-                            // Soft gradient bottom fade
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -294,9 +327,9 @@ fun InterventionScreen(
                     Spacer(modifier = Modifier.height(14.dp))
                 }
 
-                // Question Prompt Text (Responsive line height and text sizing)
+                // Question Prompt Text
                 Text(
-                    text = settings.promptTitle,
+                    text = displayPromptTitle,
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
@@ -333,7 +366,7 @@ fun InterventionScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Delay / Mindful Countdown Block (Responsive, single-line text where possible)
+                // Delay / Mindful Countdown Block
                 if (totalDelaySeconds > 0) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -446,7 +479,44 @@ fun InterventionScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // PRIMARY CHOICE: "Go Back to Studying 📚"
+                    val isDeviceAdminActive = remember { DeviceAdminHelper.isDeviceAdminActive(context) }
+                    if (!isDeviceAdminActive) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { DeviceAdminHelper.requestDeviceAdmin(context) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFD97706).copy(alpha = 0.25f)),
+                            border = CardDefaults.outlinedCardBorder().copy(
+                                brush = Brush.horizontalGradient(
+                                    listOf(Color(0xFFF59E0B), Color(0xFFD97706))
+                                )
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFBBF24),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = Localization.get("enable_lock_chip", lang),
+                                    color = Color(0xFFFEF3C7),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    // PRIMARY CHOICE: "Go Back to Studying 📚" -> Locks phone automatically!
                     Button(
                         onClick = {
                             vibrateShort()
@@ -454,7 +524,7 @@ fun InterventionScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
+                            .height(56.dp)
                             .testTag("action_back_to_studying"),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -469,18 +539,35 @@ fun InterventionScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = Localization.get("back_to_studying", lang),
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = Localization.get("back_to_studying", lang),
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = Localization.get("locks_phone_instantly", lang),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
 
-                    // SECONDARY CHOICE: "Use Phone Anyway 📱"
+                    // SECONDARY CHOICE: "Use Phone / Open App Anyway 📱"
+                    val phoneButtonLabel = if (isAppTrigger && !targetAppName.isNullOrEmpty()) {
+                        String.format(Localization.get("open_app_anyway", lang), targetAppName)
+                    } else {
+                        Localization.get("use_phone_anyway", lang)
+                    }
+
                     if (settings.delayMode == DelayMode.HOLD_BUTTON && !isUnlockUnlocked) {
                         Box(
                             modifier = Modifier
@@ -583,7 +670,7 @@ fun InterventionScreen(
                                 text = when {
                                     !isUnlockUnlocked -> String.format(Localization.get("unlocks_in_s", lang), secondsLeft)
                                     showReasonSelector -> Localization.get("proceed_with_intent", lang)
-                                    else -> Localization.get("use_phone_anyway", lang)
+                                    else -> phoneButtonLabel
                                 },
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
@@ -595,7 +682,7 @@ fun InterventionScreen(
                         }
                     }
 
-                    // Intention Selector (Scrollable row so chips never wrap awkwardly)
+                    // Intention Selector
                     AnimatedVisibility(
                         visible = showReasonSelector,
                         enter = fadeIn(),

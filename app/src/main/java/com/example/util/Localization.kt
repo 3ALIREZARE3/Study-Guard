@@ -11,10 +11,11 @@ object Localization {
 
     private val englishStrings = mapOf(
         "app_title" to "StudyGuard",
-        "app_subtitle" to "Unlock Focus Gate",
+        "app_subtitle" to "Unlock & App Focus Gate",
         
-        // Navigation labels (concise 1-word labels to prevent clipping on mobile)
+        // Navigation labels
         "nav_home" to "Home",
+        "nav_apps" to "Apps",
         "nav_customize" to "Design",
         "nav_rules" to "Rules",
         "nav_history" to "Stats",
@@ -23,7 +24,7 @@ object Localization {
         // Dashboard
         "guard_active" to "GUARD ACTIVE",
         "guard_paused" to "GUARD PAUSED",
-        "guard_active_desc" to "Intervening on phone unlock",
+        "guard_active_desc" to "Intervening on phone unlock & target apps",
         "guard_paused_desc" to "Intervention is paused",
         "guard_detail" to "Delay: %ds • Reflection gate active",
         "guard_paused_detail" to "Turn switch on to guard your study sessions.",
@@ -35,9 +36,37 @@ object Localization {
         "test_gate_now" to "Test Gate",
         "preview" to "Test",
         "permission_recommended" to "Permission Recommended",
-        "permission_desc" to "Allow 'Display over other apps' to show the prompt immediately upon phone unlock.",
+        "permission_desc" to "Allow 'Display over other apps' to show the prompt immediately.",
         "grant_permission" to "Grant Permission",
         "language_toggle" to "Language / زبان",
+
+        // Apps Gate Tab
+        "unlock_gate_title" to "Phone Unlock Gate",
+        "unlock_gate_desc" to "Intervene every time phone is unlocked",
+        "trigger_modes_title" to "Intervention Triggers",
+        "trigger_modes_desc" to "Choose when StudyGuard reflection gate should appear",
+        "test_unlock_gate" to "Test Unlock Gate",
+        "test_app_gate" to "Test App Gate",
+        "configure_apps" to "Manage Apps (%d)",
+        "select_all_preset" to "Select All Presets",
+        "clear_all_apps" to "Deselect All",
+        "gate_status_both" to "Guarding Phone Unlock & %d Selected Apps",
+        "gate_status_unlock_only" to "Guarding Phone Unlock only",
+        "gate_status_apps_only" to "Guarding %d Selected Apps only",
+        "gate_status_none" to "No triggers enabled (Turn on Unlock or Apps gate)",
+        "app_gate_title" to "Specific Apps Gate",
+        "app_gate_desc" to "Show reflection gate when opening selected distracting apps",
+        "usage_access_needed" to "Usage Access Required",
+        "usage_access_desc" to "Enable Usage Access so StudyGuard can detect when you launch protected apps.",
+        "grant_usage_access" to "Grant Usage Access",
+        "protected_apps" to "Protected Apps",
+        "apps_selected_count" to "%d apps protected",
+        "search_apps" to "Search installed apps...",
+        "popular_distractions" to "Popular Distractions",
+        "all_installed_apps" to "All Installed Apps",
+        "app_grace_title" to "App Cooldown Pass",
+        "app_grace_desc" to "Once unlocked, allow using the app for %d minutes before re-prompting.",
+        "minutes_pass" to "%d min pass",
 
         // Customize
         "set_gate_picture" to "Gate Picture",
@@ -70,17 +99,29 @@ object Localization {
 
         // Intervention Screen
         "mindful_focus_gate" to "MINDFUL FOCUS GATE",
+        "app_focus_gate" to "APP FOCUS GATE",
+        "opening_app_prompt" to "Opening %s 📱",
         "reflection_delay_active" to "Reflection Delay",
         "take_3_breaths" to "Take 3 deep breaths before deciding",
         "mindful_delay_complete" to "Delay complete. Decide thoughtfully.",
         "back_to_studying" to "Go Back to Studying 📚",
         "use_phone_anyway" to "Use Phone Anyway 📱",
+        "open_app_anyway" to "Open %s Anyway 📱",
         "unlocks_in_s" to "Unlocks in %ds...",
         "press_and_hold_unlock" to "Hold to Unlock (%ds)",
         "unlocked" to "Unlocked!",
         "what_is_intention" to "What is your intention?",
         "proceed_with_intent" to "Continue with Intent",
         "focus_on_dreams" to "FOCUS ON YOUR DREAMS",
+        "device_admin_title" to "Automatic Screen Lock (Device Admin)",
+        "device_admin_desc" to "Automatically locks and turns off the phone when you tap 'Go Back to Studying' so you return to focus instantly.",
+        "device_admin_active" to "Screen Lock Active ✓",
+        "device_admin_required" to "Screen Lock Required",
+        "activate_device_admin" to "Activate Screen Lock",
+        "test_phone_lock" to "Test Lock Phone",
+        "gate_locked_toast" to "Focus Gate is active: Tap 'Go Back to Studying' to lock phone, or wait for the reflection timer.",
+        "locks_phone_instantly" to "Locks phone automatically",
+        "enable_lock_chip" to "Enable screen lock for auto-lock on study",
 
         // Rules
         "grace_period" to "Grace Period (Cooldown)",
@@ -105,17 +146,18 @@ object Localization {
         "developer_email" to "3alirezare3@gmail.com",
         "made_with_heart" to "Made with ❤️ by me",
         "app_purpose_headline" to "Mindful Attention in a Distracted World",
-        "app_story" to "Intense study and medical education demand deep, sustained concentration. In our digital age, habitual phone unlocking can quickly steal hours of productivity.\n\nStudyGuard gives you a second chance every time you unlock your phone: a mindful pause to reflect, breathe, and return to your goals.",
+        "app_story" to "Intense study and medical education demand deep, sustained concentration. In our digital age, habitual phone unlocking and opening social apps can quickly steal hours of productivity.\n\nStudyGuard gives you a second chance: a mindful pause to reflect, breathe, and return to your goals.",
         "contact_button" to "Send Email Feedback",
-        "version_info" to "Version 2.0 • Mindful Gate"
+        "version_info" to "Version 2.5 • Unlock & App Gate"
     )
 
     private val persianStrings = mapOf(
         "app_title" to "استادی‌گارد",
-        "app_subtitle" to "دروازه تمرکز مطالعه",
+        "app_subtitle" to "دروازه تمرکز قفل و برنامه‌ها",
         
-        // Navigation labels (concise 1-word labels to prevent clipping on mobile)
+        // Navigation labels
         "nav_home" to "خانه",
+        "nav_apps" to "برنامه‌ها",
         "nav_customize" to "طراحی",
         "nav_rules" to "قوانین",
         "nav_history" to "آمار",
@@ -124,7 +166,7 @@ object Localization {
         // Dashboard
         "guard_active" to "محافظ فعال است",
         "guard_paused" to "محافظ متوقف است",
-        "guard_active_desc" to "هنگام باز شدن قفل نمایش داده می‌شود",
+        "guard_active_desc" to "هنگام باز شدن قفل و برنامه‌های هدف فعال است",
         "guard_paused_desc" to "محافظت موقتاً غیرفعال است",
         "guard_detail" to "تاخیر: %d ثانیه • دروازه تامل فعال",
         "guard_paused_detail" to "کلید را روشن کنید تا تمرکز شما حفظ شود.",
@@ -139,6 +181,34 @@ object Localization {
         "permission_desc" to "اجازه «نمایش روی سایر برنامه‌ها» را برای نمایش فوری فعال کنید.",
         "grant_permission" to "اعطای دسترسی",
         "language_toggle" to "زبان / Language",
+
+        // Apps Gate Tab
+        "unlock_gate_title" to "دروازه باز شدن قفل گوشی",
+        "unlock_gate_desc" to "نمایش صفحه تامل با هر بار باز شدن قفل گوشی",
+        "trigger_modes_title" to "موقعیت‌های فعال‌سازی",
+        "trigger_modes_desc" to "مشخص کنید دروازه تامل در چه زمان‌هایی نمایش داده شود",
+        "test_unlock_gate" to "تست دروازه قفل",
+        "test_app_gate" to "تست دروازه برنامه",
+        "configure_apps" to "مدیریت برنامه‌ها (%d)",
+        "select_all_preset" to "انتخاب برنامه‌های پرطرفدار",
+        "clear_all_apps" to "لغو انتخاب همه",
+        "gate_status_both" to "فعال هنگام باز شدن قفل و %d برنامه هدف",
+        "gate_status_unlock_only" to "فقط فعال هنگام باز شدن قفل گوشی",
+        "gate_status_apps_only" to "فقط فعال هنگام باز شدن %d برنامه انتخابی",
+        "gate_status_none" to "هیچ حالتی فعال نیست (قفل یا برنامه‌ها را روشن کنید)",
+        "app_gate_title" to "دروازه برنامه‌های خاص",
+        "app_gate_desc" to "نمایش صفحه تامل هنگام باز کردن برنامه‌های حواس‌پرت‌کن",
+        "usage_access_needed" to "دسترسی به میزان استفاده لازم است",
+        "usage_access_desc" to "دسترسی Usage Access را فعال کنید تا برنامه بتواند اجرای برنامه‌های محافظت‌شده را تشخیص دهد.",
+        "grant_usage_access" to "اعطای دسترسی استفاده",
+        "protected_apps" to "برنامه‌های محافظت‌شده",
+        "apps_selected_count" to "%d برنامه محافظت‌شده",
+        "search_apps" to "جستجوی برنامه‌ها...",
+        "popular_distractions" to "برنامه‌های پرحواس‌پرتی",
+        "all_installed_apps" to "سایر برنامه‌های نصب‌شده",
+        "app_grace_title" to "مهلت موقت پس از باز کردن",
+        "app_grace_desc" to "پس از باز کردن، تا %d دقیقه مجدداً صفحه تامل نشان داده نشود.",
+        "minutes_pass" to "مهلت %d دقیقه",
 
         // Customize
         "set_gate_picture" to "تصویر دروازه",
@@ -171,17 +241,29 @@ object Localization {
 
         // Intervention Screen
         "mindful_focus_gate" to "دروازه هوشیاری و تمرکز",
+        "app_focus_gate" to "دروازه تمرکز برنامه",
+        "opening_app_prompt" to "در حال باز کردن %s 📱",
         "reflection_delay_active" to "تاخیر تامل فعال است",
         "take_3_breaths" to "۳ نفس عمیق بکشید و تصمیم بگیرید",
         "mindful_delay_complete" to "تاخیر سپری شد. آگاهانه انتخاب کنید.",
         "back_to_studying" to "برگشت به درس 📚",
         "use_phone_anyway" to "استفاده از گوشی 📱",
+        "open_app_anyway" to "باز کردن %s 📱",
         "unlocks_in_s" to "باز شدن در %d ثانیه...",
         "press_and_hold_unlock" to "نگه دارید (%d ثانیه)",
         "unlocked" to "باز شد!",
-        "what_is_intention" to "هدف شما از استفاده از گوشی چیست؟",
+        "what_is_intention" to "هدف شما از استفاده چیست؟",
         "proceed_with_intent" to "ادامه با هدف مشخص",
         "focus_on_dreams" to "روی رویاهایت تمرکز کن",
+        "device_admin_title" to "قفل خودکار گوشی (Device Admin)",
+        "device_admin_desc" to "هنگام انتخاب 'برگشت به درس'، گوشی بلافاصله قفل و خاموش می‌شود تا بدون حواس‌پرتی درس بخوانید.",
+        "device_admin_active" to "قفل خودکار فعال است ✓",
+        "device_admin_required" to "مجوز قفل صفحه لازم است",
+        "activate_device_admin" to "فعال‌سازی قفل صفحه",
+        "test_phone_lock" to "تست قفل کردن گوشی",
+        "gate_locked_toast" to "دروازه تمرکز فعال است: برای قفل شدن گوشی روی برگشت به درس بزنید یا تا پایان زمان صبر کنید.",
+        "locks_phone_instantly" to "گوشی را خودکار قفل و خاموش می‌کند",
+        "enable_lock_chip" to "فعال‌سازی مجوز قفل خودکار صفحه",
 
         // Rules
         "grace_period" to "مهلت وقفه (Cooldown)",
@@ -206,9 +288,9 @@ object Localization {
         "developer_email" to "3alirezare3@gmail.com",
         "made_with_heart" to "ساخته شده با ❤️ توسط من",
         "app_purpose_headline" to "محافظت از تمرکز در دنیای دیجیتال",
-        "app_story" to "مطالعه طولانی و دوران تحصیل پزشکی نیازمند تمرکز عمیق است. باز کردن غیرارادی قفل گوشی می‌تواند ساعت‌ها وقت باارزش را بسوزاند.\n\nاستادی‌گارد با هر بار باز کردن گوشی فرصتی برای یک مکث آگاهانه به شما می‌دهد تا به کتاب‌ها و رویاهایتان بازگردید.",
+        "app_story" to "مطالعه طولانی و دوران تحصیل پزشکی نیازمند تمرکز عمیق است. باز کردن غیرارادی قفل گوشی یا باز کردن برنامه‌های اجتماعی می‌تواند ساعت‌ها وقت باارزش را بسوزاند.\n\nاستادی‌گارد با هر بار باز شدن قفل یا اجرای برنامه‌های خاص فرصتی برای یک مکث آگاهانه به شما می‌دهد تا به کتاب‌ها و رویاهایتان بازگردید.",
         "contact_button" to "ارسال ایمیل",
-        "version_info" to "نسخه ۲.۰ • گیت تمرکز"
+        "version_info" to "نسخه ۲.۵ • دروازه قفل و برنامه"
     )
 
     data class PresetOption(

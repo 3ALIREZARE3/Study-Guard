@@ -37,8 +37,16 @@ data class FocusRecord(
     val note: String = ""
 )
 
+data class TargetAppInfo(
+    val packageName: String,
+    val appName: String,
+    val isBlocked: Boolean = false,
+    val isPopularPreset: Boolean = false
+)
+
 data class StudyGuardSettings(
     val isEnabled: Boolean = true,
+    val unlockGateEnabled: Boolean = true,
     val appLanguage: AppLanguage = AppLanguage.EN,
     val promptTitle: String = "Do you really want to use your phone, or go back to studying?",
     val promptSubtitle: String = "Take a breath. Your study goals and future self are waiting for you! 📚",
@@ -54,5 +62,17 @@ data class StudyGuardSettings(
     val endHour: Int = 22,
     val endMinute: Int = 0,
     val vibrationEnabled: Boolean = true,
-    val requireIntentionNote: Boolean = false
+    val requireIntentionNote: Boolean = false,
+    
+    // New Feature: Specific Apps Gate
+    val appGateEnabled: Boolean = true,
+    val blockedPackages: Set<String> = setOf(
+        "com.instagram.android",
+        "com.zhiliaoapp.musically",
+        "com.google.android.youtube",
+        "com.twitter.android",
+        "org.telegram.messenger",
+        "com.reddit.frontpage"
+    ),
+    val appGraceMinutes: Int = 5 // Grace period in minutes after user chooses "Use App"
 )

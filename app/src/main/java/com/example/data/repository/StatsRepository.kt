@@ -48,7 +48,7 @@ class StatsRepository(private val context: Context) {
         val phone = prefs.getInt(KEY_TOTAL_PHONE, 0)
         val total = studied + phone
         val rate = if (total > 0) (studied * 100) / total else 0
-        val minutesSaved = studied * 20 // Each time user went back to studying, ~20 min protected!
+        val minutesSaved = studied * 20
 
         val historyJsonStr = prefs.getString(KEY_HISTORY_JSON, "[]") ?: "[]"
         val records = mutableListOf<FocusRecord>()
@@ -101,7 +101,6 @@ class StatsRepository(private val context: Context) {
             put("note", note)
         }
 
-        // Prepend new record, keep up to 50
         val updatedArray = JSONArray()
         updatedArray.put(newRecordObj)
         val limit = minOf(jsonArray.length(), 49)

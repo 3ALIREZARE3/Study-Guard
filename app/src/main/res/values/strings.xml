@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">StudyGuard</string>
     <string name="service_notification_channel_name">StudyGuard Monitor</string>
-    <string name="service_notification_channel_desc">Monitors screen unlock events to show study intervention prompts</string>
+    <string name="service_notification_channel_desc">Monitors screen unlock and target app events</string>
     <string name="service_notification_title">StudyGuard is Active</string>
-    <string name="service_notification_text">Guarding your focus on phone unlock</string>
-    <string name="intervention_notification_title">Mindful Pause: Time to Study?</string>
-    <string name="intervention_notification_text">Tap to open your study focus reflection</string>
+    <string name="service_notification_text">Guarding your focus on phone unlock &amp; app opens</string>
+    <string name="device_admin_description">StudyGuard automatically locks your device screen when you choose to study.</string>
+    <string name="device_admin_explanation">StudyGuard requires screen lock permission to automatically lock your phone when you choose to go back to studying.</string>
 </resources>
